@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Country Calling Codes Map</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        body { 
+            margin: 0; 
+            padding: 0; 
+            font-family: Arial, sans-serif;
+        }
+        #map { 
+            height: 100vh; 
+            width: 100vw; 
+        }
+        
+        /* Search Box Styling */
+        .search-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1000; /* Keeps it above the map layers */
+        }
+        .search-container input {
+            width: 280px;
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            outline: none;
+            transition: box-shadow 0.3s ease;
+        }
+        .search-container input:focus {
+            box-shadow: 0 4px 20px rgba(0,120,168,0.4);
+        }
+
+        /* Hover Info Box Styling */
+        .info-box {
+            padding: 12px 18px;
+            font: 14px/16px Arial, Helvetica, sans-serif;
+            background: rgba(255,255,255,0.95);
+            box-shadow: 0 0 15px rgba(0,0,0,0.2);
+            border-radius: 8px;
+            color: #333;
+            text-align: center;
+            min-width: 120px;
+        }
+        .info-box h4 {
+            margin: 0 0 8px;
+            color: #555;
+            font-size: 16px;
+        }
+        .code-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0078A8;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="search-container">
+        <input type="text" id="search-box" list="countries-list" placeholder="Search for a country...">
+        <datalist id="countries-list"></datalist>
+    </div>
+
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // 1. Initialize the map
+        const map = L.map('map').setView([25, 0], 2);
+
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+            subdomains: 'abcd',
+            maxZoom: 10,
+            minZoom: 2
+        }).addTo(map);
+
+        // 2. Comprehensive Database of Calling Codes
+        const callingCodes = {
+            "Afghanistan": "+93", "Albania": "+355", "Algeria": "+213", "Andorra": "+376", "Angola": "+244", 
+            "Antigua and Barbuda": "+1", "Argentina": "+54", "Armenia": "+374", "Australia": "+61", "Austria": "+43", 
+            "Azerbaijan": "+994", "Bahamas": "+1", "The Bahamas": "+1", "Bahrain": "+973", "Bangladesh": "+880", 
+            "Barbados": "+1", "Belarus": "+375", "Belgium": "+32", "Belize": "+501", "Benin": "+229", "Bhutan": "+975", 
+            "Bolivia": "+591", "Bosnia and Herzegovina": "+387", "Botswana": "+267", "Brazil": "+55", "Brunei": "+673", 
+            "Bulgaria": "+359", "Burkina Faso": "+226", "Burundi": "+257", "Cambodia": "+855", "Cameroon": "+237", 
+            "Canada": "+1", "Cape Verde": "+238", "Central African Republic": "+236", "Chad": "+235", "Chile": "+56", 
+            "China": "+86", "Colombia": "+57", "Comoros": "+269", "Democratic Republic of the Congo": "+243", 
+            "Republic of the Congo": "+242", "Costa Rica": "+506", "Croatia": "+385", "Cuba": "+53", "Cyprus": "+357", 
+            "Czech Republic": "+420", "Denmark": "+45", "Djibouti": "+253", "Dominica": "+1", "Dominican Republic": "+1", 
+            "Ecuador": "+593", "Egypt": "+20", "El Salvador": "+503", "Equatorial Guinea": "+240", "Eritrea": "+291", 
+            "Estonia": "+372", "Eswatini": "+268", "Ethiopia": "+251", "Fiji": "+679", "Finland": "+358", "France": "+33", 
+            "Gabon": "+241", "Gambia": "+220", "Georgia": "+995", "Germany": "+49", "Ghana": "+233", "Greece": "+30", 
+            "Greenland": "+299", "Grenada": "+1", "Guatemala": "+502", "Guinea": "+224", "Guinea-Bissau": "+245", 
+            "Guyana": "+592", "Haiti": "+509", "Honduras": "+504", "Hungary": "+36", "Iceland": "+354", "India": "+91", 
+            "Indonesia": "+62", "Iran": "+98", "Iraq": "+964", "Ireland": "+353", "Israel": "+972", "Italy": "+39", 
+            "Ivory Coast": "+225", "Côte d'Ivoire": "+225", "Jamaica": "+1", "Japan": "+81", "Jordan": "+962", 
+            "Kazakhstan": "+7", "Kenya": "+254", "Kiribati": "+686", "Kuwait": "+965", "Kyrgyzstan": "+996", "Laos": "+856", 
+            "Latvia": "+371", "Lebanon": "+961", "Lesotho": "+266", "Liberia": "+231", "Libya": "+218", "Liechtenstein": "+423", 
+            "Lithuania": "+370", "Luxembourg": "+352", "Madagascar": "+261", "Malawi": "+265", "Malaysia": "+60", 
+            "Maldives": "+960", "Mali": "+223", "Malta": "+356", "Marshall Islands": "+692", "Mauritania": "+222", 
+            "Mauritius": "+230", "Mexico": "+52", "Micronesia": "+691", "Moldova": "+373", "Monaco": "+377", "Mongolia": "+976", 
+            "Montenegro": "+382", "Morocco": "+212", "Mozambique": "+258", "Myanmar": "+95", "Namibia": "+264", "Nauru": "+674", 
+            "Nepal": "+977", "Netherlands": "+31", "New Zealand": "+64", "Nicaragua": "+505", "Niger": "+227", "Nigeria": "+234", 
+            "North Korea": "+850", "North Macedonia": "+389", "Norway": "+47", "Oman": "+968", "Pakistan": "+92", 
+            "Palau": "+680", "Palestine": "+970", "Panama": "+507", "Papua New Guinea": "+675", "Paraguay": "+595", 
+            "Peru": "+51", "Philippines": "+63", "Poland": "+48", "Portugal": "+351", "Puerto Rico": "+1", "Qatar": "+974", 
+            "Romania": "+40", "Russia": "+7", "Rwanda": "+250", "Saint Kitts and Nevis": "+1", "Saint Lucia": "+1", 
+            "Saint Vincent and the Grenadines": "+1", "Samoa": "+685", "San Marino": "+378", "Sao Tome and Principe": "+239", 
+            "Saudi Arabia": "+966", "Senegal": "+221", "Serbia": "+381", "Republic of Serbia": "+381", "Seychelles": "+248", 
+            "Sierra Leone": "+232", "Singapore": "+65", "Slovakia": "+421", "Slovenia": "+386", "Solomon Islands": "+677", 
+            "Somalia": "+252", "South Africa": "+27", "South Korea": "+82", "South Sudan": "+211", "Spain": "+34", 
+            "Sri Lanka": "+94", "Sudan": "+249", "Suriname": "+597", "Sweden": "+46", "Switzerland": "+41", "Syria": "+963", 
+            "Taiwan": "+886", "Tajikistan": "+992", "Tanzania": "+255", "United Republic of Tanzania": "+255", "Thailand": "+66", 
+            "Togo": "+228", "Tonga": "+676", "Trinidad and Tobago": "+1", "Tunisia": "+216", "Turkey": "+90", 
+            "Turkmenistan": "+993", "Tuvalu": "+688", "Uganda": "+256", "Ukraine": "+380", "United Arab Emirates": "+971", 
+            "United Kingdom": "+44", "United States": "+1", "United States of America": "+1", "Uruguay": "+598", 
+            "Uzbekistan": "+998", "Vanuatu": "+678", "Vatican City": "+379", "Venezuela": "+58", "Vietnam": "+84", 
+            "Western Sahara": "+212", "Yemen": "+967", "Zambia": "+260", "Zimbabwe": "+263"
+        };
+
+        // Populate the datalist for the search auto-complete
+        const datalist = document.getElementById('countries-list');
+        Object.keys(callingCodes).sort().forEach(country => {
+            const option = document.createElement('option');
+            option.value = country;
+            datalist.appendChild(option);
+        });
+
+        // 3. Info Control Panel
+        const info = L.control({position: 'topright'});
+
+        info.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info-box');
+            this.update();
+            return this._div;
+        };
+
+        info.update = function (props) {
+            if (props) {
+                const code = callingCodes[props.name];
+                const displayCode = code ? `<div class="code-display">${code}</div>` : '<div style="color:#999; margin-top:5px;">Code not in dictionary</div>';
+                this._div.innerHTML = `<h4>${props.name}</h4>${displayCode}`;
+            } else {
+                this._div.innerHTML = '<h4>Calling Codes</h4><span style="color:#777;">Hover or search a country</span>';
+            }
+        };
+
+        info.addTo(map);
+
+        // 4. Load Map Data and Setup Interactivity
+        let geojson;
+        let countryLayers = {}; // To store references to layers for the search function
+        let lastHighlightedLayer = null;
+
+        function highlightFeature(layer) {
+            // Reset previous highlight
+            if (lastHighlightedLayer) {
+                geojson.resetStyle(lastHighlightedLayer);
+            }
+            
+            layer.setStyle({
+                weight: 3,
+                color: '#222',
+                fillOpacity: 0.8
+            });
+            layer.bringToFront();
+            info.update(layer.feature.properties);
+            lastHighlightedLayer = layer;
+        }
+
+        fetch('https://raw.githubusercontent.com/johan/world.geo.json/master/countries.geo.json')
+            .then(response => response.json())
+            .then(data => {
+                geojson = L.geoJson(data, {
+                    style: function (feature) {
+                        const hasData = callingCodes[feature.properties.name];
+                        return {
+                            fillColor: hasData ? '#0078A8' : '#e0e0e0',
+                            weight: 1,
+                            opacity: 1,
+                            color: 'white',
+                            fillOpacity: hasData ? 0.6 : 0.3
+                        };
+                    },
+                    onEachFeature: function (feature, layer) {
+                        // Store the layer so the search bar can find it later
+                        countryLayers[feature.properties.name] = layer;
+
+                        layer.on({
+                            mouseover: function(e) {
+                                highlightFeature(e.target);
+                            },
+                            mouseout: function(e) {
+                                geojson.resetStyle(e.target);
+                                info.update();
+                                lastHighlightedLayer = null;
+                            }
+                        });
+                    }
+                }).addTo(map);
+            })
+            .catch(error => console.error("Error loading map data:", error));
+
+        // 5. Search Bar Logic
+        const searchInput = document.getElementById('search-box');
+        
+        searchInput.addEventListener('input', function(e) {
+            const searchedName = e.target.value;
+            
+            // If the typed text matches a country polygon we have
+            if (countryLayers[searchedName]) {
+                const layer = countryLayers[searchedName];
+                
+                // Zoom map to the country's bounds
+                map.fitBounds(layer.getBounds());
+                
+                // Highlight the country and update info box
+                highlightFeature(layer);
+            } 
+            // Fallback: If it's in our dictionary but the GeoJSON calls it something else
+            else if (callingCodes[searchedName]) {
+                info.update({ name: searchedName });
+            }
+        });
+
+    </script>
+</body>
+</html>
